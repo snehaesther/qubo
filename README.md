@@ -1,6 +1,6 @@
-QUBO Formulation for Path Optimization
+# QUBO Formulation for Path Optimization
 
-Overview
+## Overview
 
 This document presents two Quadratic Unconstrained Binary Optimization (QUBO) formulations for a path selection problem as we presented in the meeting today:
 
@@ -15,12 +15,10 @@ The formulation also addresses the "two minima issue", which arises when modelin
 
 ## Formula
 
-$$
-E(x,y) =
+$$E(x,y) =
 \sum_{e \in E} c_e x_e
 + P_1 \sum_{v \in V} \left( \sum_{e \in \delta(v)} s_{v,e} x_e - T_v \right)^2
-+ P_2 \sum_{v \in V} \left( \sum_{e \in \delta(v)} x_e - 2y_v \right)^2
-$$
++ P_2 \sum_{v \in V} \left( \sum_{e \in \delta(v)} x_e - 2y_v \right)^2$$
 
 ---
 
