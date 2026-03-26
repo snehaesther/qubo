@@ -25,12 +25,6 @@ $$
 
 - $x_e \in \{0,1\}$: Indicates whether edge $e$ is selected  
 - $y_v \in \{0,1\}$: Indicates whether node $v$ is active  
----
-
-## Decision Variables
-
-- $x_e \in \{0,1\}$: Indicates whether edge $e$ is selected  
-- $y_v \in \{0,1\}$: Indicates whether node $v$ is active  
 
 ---
 
