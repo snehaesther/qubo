@@ -16,10 +16,15 @@ The formulation also addresses the "two minima issue", which arises when modelin
 ## Formula
 
 $$
-E(x,y) = \sum_{e \in E} c_e x_e
-+ P_1 \sum_{v \in V} \left( \sum_{e \in \delta(v)} s_{v,e} x_e - T_v \right)^2
-+ P_2 \sum_{v \in V} \left( \sum_{e \in \delta(v)} x_e - 2y_v \right)^2
+E(x,y) = \sum_{e \in E} c_e x_e+ P_1 \sum_{v \in V} \left( \sum_{e \in \delta(v)} s_{v,e} x_e - T_v \right)^2+ P_2 \sum_{v \in V} \left( \sum_{e \in \delta(v)} x_e - 2y_v \right)^2
 $$
+
+---
+
+## Decision Variables
+
+- $x_e \in \{0,1\}$: Indicates whether edge $e$ is selected  
+- $y_v \in \{0,1\}$: Indicates whether node $v$ is active  
 ---
 
 ## Decision Variables
@@ -143,12 +148,7 @@ It ensures that each node is either unused or correctly part of a path.
 ## Formula
 
 $$
-E(x,y,z) =
-\sum_{e \in E} c_e x_e
-+ P_1 \sum_{v \in V} \left( \sum_{e \in \delta(v)} s_{v,e} x_e - (z_v^+ - z_v^-) \right)^2
-+ P_2 \sum_{v \in V} \left( \sum_{e \in \delta(v)} x_e - 2y_v \right)^2
-+ P_3 \left( \sum_{v \in V} z_v^+ - 1 \right)^2
-+ P_4 \left( \sum_{v \in V} z_v^- - 1 \right)^2
+E(x,y,z) = \sum_{e \in E} c_e x_e + P_1 \sum_{v \in V} \left( \sum_{e \in \delta(v)} s_{v,e} x_e - (z_v^+ - z_v^-) \right)^2 + P_2 \sum_{v \in V} \left( \sum_{e \in \delta(v)} x_e - 2y_v \right)^2 + P_3 \left( \sum_{v \in V} z_v^+ - 1 \right)^2 + P_4 \left( \sum_{v \in V} z_v^- - 1 \right)^2
 $$
 
 ---
