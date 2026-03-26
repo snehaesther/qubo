@@ -1,4 +1,6 @@
 
+## Energy Function
+
 $$
 E(x) = \sum_{e \in E} c_e x_e
 + P \sum_{v \in V}
