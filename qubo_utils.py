@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import random
 
 
-def build_Q(costs, edges, nodes, targets, P1=20, P2=20):
-    num_vars = len(costs) + (len(nodes) - 2)
+def build_Q(costs, edges, nodes, targets, P1=200, P2=50):
+    num_vars = len(costs)   # ← IMPORTANT CHANGE
     Q = np.zeros((num_vars, num_vars))
 
     # Linear edge costs
@@ -24,40 +24,19 @@ def build_Q(costs, edges, nodes, targets, P1=20, P2=20):
 
         Tv = targets[v]
 
+        # Diagonal
         for i, s_vi in conn:
-            Q[i, i] += P1 * (1 - 2 * Tv * s_vi)
+            Q[i, i] += P1 * (s_vi * s_vi)
+            Q[i, i] += -2 * P1 * Tv * s_vi
 
-            for j, s_vj in conn:
-                if i < j:
-                    Q[i, j] += 2 * P1 * s_vi * s_vj
-
-    # Degree helper constraints
-    helper_index = len(costs)
-
-    for v in nodes:
-        if targets[v] == 0:
-            conn = []
-
-            for i, (u, w) in enumerate(edges):
-                if u == v or w == v:
-                    conn.append(i)
-
-            y_idx = helper_index
-            helper_index += 1
-
-            for i in conn:
-                Q[i, i] += P2
-
-                for j in conn:
-                    if i < j:
-                        Q[i, j] += 2 * P2
-
-                Q[i, y_idx] -= 4 * P2
-
-            Q[y_idx, y_idx] += 4 * P2
+        # Off-diagonal
+        for idx1 in range(len(conn)):
+            i, s_vi = conn[idx1]
+            for idx2 in range(idx1 + 1, len(conn)):
+                j, s_vj = conn[idx2]
+                Q[i, j] += 2 * P1 * s_vi * s_vj
 
     return Q
-
 
 def check_validity(bits, edges, nodes, targets):
     active_edges = [edges[i] for i in range(len(edges)) if bits[i] == 1]
@@ -144,53 +123,69 @@ def test_run():
     print("QUBO Cost:", qubo_cost)
     print("Classical Cost:", classical_cost)
     print("Result:", status)
-def build_multi_Q_strict(edges, path_targets, costs,
-                         P_shared=10,
-                         P_flow=20,
-                         P_branch=15):
+def build_multi_Q_strict(costs, edges, nodes, targets_list,
+                        P1=200, P2=50, P_shared=100):
 
     import numpy as np
 
+    Q_blocks = []
+
+    for targets in targets_list:
+        Q_blocks.append(build_Q(costs, edges, nodes, targets, P1, P2))
+
+    n = Q_blocks[0].shape[0]
+    num_paths = len(Q_blocks)
+
+    Q_total = np.block([
+        [Q_blocks[i] if i == j else np.zeros((n, n))
+         for j in range(num_paths)]
+        for i in range(num_paths)
+    ])
+
+    # Shared edge penalty
     num_edges = len(edges)
-    num_paths = len(path_targets)
-
-    total_variables = num_edges * num_paths
-    Q = np.zeros((total_variables, total_variables))
-
-    nodes = sorted(set(sum(edges, ())))
-
-    for p in range(num_paths):
-        for e in range(num_edges):
-            idx = p * num_edges + e
-            Q[idx, idx] += costs[e]
 
     for e in range(num_edges):
         for p1 in range(num_paths):
             for p2 in range(p1 + 1, num_paths):
-                i = p1 * num_edges + e
-                j = p2 * num_edges + e
-                Q[i, j] += P_shared
 
-    for p, (source, sink) in enumerate(path_targets):
-        for e, (u, v) in enumerate(edges):
-            idx = p * num_edges + e
+                i = p1 * n + e
+                j = p2 * n + e
 
-            if u == source:
-                Q[idx, idx] -= P_flow
+                Q_total[i, j] += P_shared
+                Q_total[j, i] += P_shared
 
-            if v == sink:
-                Q[idx, idx] -= P_flow
+    # ✅ NOW ADD DEGREE CONSTRAINT HERE (same indentation as above loop)
+    P_degree = 100
 
     for p in range(num_paths):
         for node in nodes:
-            outgoing = [
-                p * num_edges + e
-                for e, (u, v) in enumerate(edges)
-                if u == node
-            ]
 
-            for i in range(len(outgoing)):
-                for j in range(i + 1, len(outgoing)):
-                    Q[outgoing[i], outgoing[j]] += P_branch
+            outgoing = []
+            incoming = []
 
-    return Q
+            for e, (u, v) in enumerate(edges):
+                idx = p * n + e
+
+                if u == node:
+                    outgoing.append(idx)
+
+                if v == node:
+                    incoming.append(idx)
+
+            # OUTGOING ≤ 1
+            for i in outgoing:
+                Q_total[i, i] += -P_degree
+                for j in outgoing:
+                    if i < j:
+                        Q_total[i, j] += 2 * P_degree
+
+            # INCOMING ≤ 1
+            for i in incoming:
+                Q_total[i, i] += -P_degree
+                for j in incoming:
+                    if i < j:
+                        Q_total[i, j] += 2 * P_degree
+
+    
+    return Q_total
