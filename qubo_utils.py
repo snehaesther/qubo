@@ -189,3 +189,18 @@ def build_multi_Q_strict(costs, edges, nodes, targets_list,
 
     
     return Q_total
+
+def execute_qaoa_and_get_results(job, qpu, param_map, Q,nbshots):
+    bitstrings = []
+    probabilities = []
+
+    final_circuit = job.circuit.bind_variables(param_map)
+    final_job = final_circuit.to_job(nbshots=nbshots)
+    final_result = qpu.submit(final_job)
+
+    for sample in final_result:
+        bitstring = sample.state.bitstring.zfill(Q.shape[0])
+        bitstrings.append(bitstring)
+        probabilities.append(sample.probability)
+
+    return bitstrings, probabilities, final_result
