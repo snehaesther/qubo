@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import random
 
 
-def build_Q(costs, edges, nodes, targets, P1=200, P2=50):
+
+def build_Q(costs, edges, nodes, targets, P1=3, P2=2):
     num_vars = len(costs)   # ← IMPORTANT CHANGE
     Q = np.zeros((num_vars, num_vars))
 
@@ -124,15 +125,79 @@ def test_run():
     print("Classical Cost:", classical_cost)
     print("Result:", status)
 def build_multi_Q_strict(costs, edges, nodes, targets_list,
-                        P1=200, P2=50, P_shared=100):
+                        P_cost=1, P_flow=200, P_shared=80, P_degree=60):
 
     import numpy as np
 
     Q_blocks = []
 
+    # -----------------------------
+    # 1. Build single-path QUBO per path
+    # -----------------------------
     for targets in targets_list:
-        Q_blocks.append(build_Q(costs, edges, nodes, targets, P1, P2))
 
+        num_edges = len(edges)
+        Q = np.zeros((num_edges, num_edges))
+
+        # ---- Cost term (objective) ----
+        for i in range(num_edges):
+            Q[i, i] += P_cost * costs[i]
+
+        # ---- FLOW CONSERVATION (MAIN FIX) ----
+        for node in nodes:
+
+            conn = []  # (edge_index, +1 or -1)
+
+            for i, (u, v) in enumerate(edges):
+                if u == node:
+                    conn.append((i, +1))   # outgoing
+                if v == node:
+                    conn.append((i, -1))   # incoming
+
+            target = targets[node]
+
+            # Expand (sum s_i*x_i - target)^2
+            for i, si in conn:
+                Q[i, i] += P_flow * (si * si)
+                Q[i, i] += -2 * P_flow * target * si
+
+            for a in range(len(conn)):
+                i, si = conn[a]
+                for b in range(a + 1, len(conn)):
+                    j, sj = conn[b]
+                    Q[i, j] += 2 * P_flow * si * sj
+
+        # ---- DEGREE CONSTRAINT (optional but useful) ----
+        for node in nodes:
+
+            outgoing = []
+            incoming = []
+
+            for i, (u, v) in enumerate(edges):
+                if u == node:
+                    outgoing.append(i)
+                if v == node:
+                    incoming.append(i)
+
+            # Outgoing ≤ 1
+            for i in outgoing:
+                Q[i, i] += -P_degree
+                for j in outgoing:
+                    if i < j:
+                        Q[i, j] += 2 * P_degree
+
+            # Incoming ≤ 1
+            for i in incoming:
+                Q[i, i] += -P_degree
+                for j in incoming:
+                    if i < j:
+                        Q[i, j] += 2 * P_degree
+
+        Q_blocks.append(Q)
+
+    # -----------------------------
+    # 2. Combine paths (block diagonal)
+    # -----------------------------
     n = Q_blocks[0].shape[0]
     num_paths = len(Q_blocks)
 
@@ -142,7 +207,9 @@ def build_multi_Q_strict(costs, edges, nodes, targets_list,
         for i in range(num_paths)
     ])
 
-    # Shared edge penalty
+    # -----------------------------
+    # 3. Shared edge penalty
+    # -----------------------------
     num_edges = len(edges)
 
     for e in range(num_edges):
@@ -155,41 +222,37 @@ def build_multi_Q_strict(costs, edges, nodes, targets_list,
                 Q_total[i, j] += P_shared
                 Q_total[j, i] += P_shared
 
-    # ✅ NOW ADD DEGREE CONSTRAINT HERE (same indentation as above loop)
-    P_degree = 100
-
-    for p in range(num_paths):
-        for node in nodes:
-
-            outgoing = []
-            incoming = []
-
-            for e, (u, v) in enumerate(edges):
-                idx = p * n + e
-
-                if u == node:
-                    outgoing.append(idx)
-
-                if v == node:
-                    incoming.append(idx)
-
-            # OUTGOING ≤ 1
-            for i in outgoing:
-                Q_total[i, i] += -P_degree
-                for j in outgoing:
-                    if i < j:
-                        Q_total[i, j] += 2 * P_degree
-
-            # INCOMING ≤ 1
-            for i in incoming:
-                Q_total[i, i] += -P_degree
-                for j in incoming:
-                    if i < j:
-                        Q_total[i, j] += 2 * P_degree
-
-    
     return Q_total
+def check_constraints(bits, edges, nodes, targets):
 
+    flow = {n: 0 for n in nodes}
+
+    for bit, (u, v) in zip(bits, edges):
+        if bit == 1:
+            flow[u] += 1
+            flow[v] -= 1
+
+    for n in nodes:
+        if flow[n] != targets[n]:
+            return False
+
+    return True
+def is_valid_path(selected_edges, targets):
+
+    flow = {}
+
+    for node in targets:
+        flow[node] = 0
+
+    for u, v in selected_edges:
+        flow[u] += 1
+        flow[v] -= 1
+
+    for node in targets:
+        if flow[node] != targets[node]:
+            return False
+
+    return True
 def execute_qaoa_and_get_results(job, qpu, param_map, Q,nbshots):
     bitstrings = []
     probabilities = []
