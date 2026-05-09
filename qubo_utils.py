@@ -253,11 +253,11 @@ def is_valid_path(selected_edges, targets):
             return False
 
     return True
-def execute_qaoa_and_get_results(job, qpu, param_map, Q,nbshots):
+def execute_qaoa_and_get_results(circuit, qpu, param_map, Q,nbshots):
     bitstrings = []
     probabilities = []
 
-    final_circuit = job.circuit.bind_variables(param_map)
+    final_circuit = circuit.bind_variables(param_map)
     final_job = final_circuit.to_job(nbshots=nbshots)
     final_result = qpu.submit(final_job)
 
@@ -267,3 +267,22 @@ def execute_qaoa_and_get_results(job, qpu, param_map, Q,nbshots):
         probabilities.append(sample.probability)
 
     return bitstrings, probabilities, final_result
+
+def linear_ramp_parameters(depth,  delta_beta, delta_gamma):
+
+    gammas = []
+    betas = []
+
+    for i in range(depth):
+        gamma = ((i + 1) / depth) * delta_gamma
+        beta = (1 - (i / depth)) * delta_beta
+        gammas.append(gamma)
+        betas.append(beta)
+
+    param_map = {}
+
+    for i in range(depth):
+        param_map[f"\\gamma_{{{i}}}"] = gammas[i]
+        param_map[f"\\beta_{{{i}}}"] = betas[i]
+
+    return param_map
